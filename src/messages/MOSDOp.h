@@ -377,6 +377,8 @@ struct ceph_osd_request_head {
 
       ::encode(retry_attempt, payload);
       ::encode(features, payload);
+
+      encode_trace(payload, features);
     }
   }
 
@@ -546,6 +548,10 @@ struct ceph_osd_request_head {
     hobj.pool = pgid.pgid.pool();
     hobj.set_key(oloc.key);
     hobj.nspace = oloc.nspace;
+
+    if (header.version >= 8) {
+      decode_trace(p);
+    }
 
     OSDOp::split_osd_op_vector_in_data(ops, data);
 
