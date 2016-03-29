@@ -5754,6 +5754,8 @@ void BlueStore::_do_zero_tail_extent(
   const uint64_t block_size = bdev->get_block_size();
   const uint64_t block_mask = ~(block_size - 1);
 
+  dout(10) << __func__ << " offset " << offset << " extent "
+	   << pp->first << ": " << pp->second << dendl;
   assert(offset > o->onode.size);
   assert(pp != o->onode.block_map.end());
 
@@ -5784,10 +5786,12 @@ void BlueStore::_do_zero_tail_extent(
     // end was block-aligned.  zero the rest of the extent now.
     uint64_t x_off = end_block - pp->first;
     uint64_t x_len = pp->second.length - x_off;
-    dout(10) << __func__ << " zero tail " << x_off << "~" << x_len
-	     << " of tail extent " << pp->first << ": " << pp->second
-	     << dendl;
-    bdev->aio_zero(pp->second.offset + x_off, x_len, &txc->ioc);
+    if (x_len > 0) {
+      dout(10) << __func__ << " zero tail " << x_off << "~" << x_len
+	       << " of tail extent " << pp->first << ": " << pp->second
+	       << dendl;
+      bdev->aio_zero(pp->second.offset + x_off, x_len, &txc->ioc);
+    }
   }
 }
 
