@@ -361,6 +361,8 @@ struct ceph_osd_request_head {
       ::encode(osdmap_epoch, payload);
       ::encode(flags, payload);
       ::encode(reqid, payload);
+      encode_trace(payload, features);
+
       ::encode(client_inc, payload);
       ::encode(mtime, payload);
       ::encode(get_object_locator(), payload);
@@ -377,8 +379,6 @@ struct ceph_osd_request_head {
 
       ::encode(retry_attempt, payload);
       ::encode(features, payload);
-
-      encode_trace(payload, features);
     }
   }
 
@@ -395,6 +395,7 @@ struct ceph_osd_request_head {
       ::decode(osdmap_epoch, p);
       ::decode(flags, p);
       ::decode(reqid, p);
+      decode_trace(p);
     } else if (header.version == 7) {
       ::decode(pgid.pgid, p);      // raw pgid
       hobj.set_hash(pgid.pgid.ps());
@@ -548,10 +549,6 @@ struct ceph_osd_request_head {
     hobj.pool = pgid.pgid.pool();
     hobj.set_key(oloc.key);
     hobj.nspace = oloc.nspace;
-
-    if (header.version >= 8) {
-      decode_trace(p);
-    }
 
     OSDOp::split_osd_op_vector_in_data(ops, data);
 
