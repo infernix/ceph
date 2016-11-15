@@ -6690,6 +6690,8 @@ void BlueStore::_txc_finish_kv(TransContext *txc)
   if (!txc->oncommits.empty()) {
     finishers[n]->queue(txc->oncommits);
   }
+
+  --txc->osr->txc_with_unsubmitted_completions;
   op_queue_release_throttle(txc);
 }
 
@@ -7147,6 +7149,7 @@ int BlueStore::queue_transactions(
 
   // prepare
   TransContext *txc = _txc_create(osr);
+  ++txc->osr->txc_with_unsubmitted_completions;
   txc->onreadable = onreadable;
   txc->onreadable_sync = onreadable_sync;
   txc->oncommit = ondisk;
