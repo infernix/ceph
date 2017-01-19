@@ -50,6 +50,8 @@ static uint32_t crypto_refs = 0;
 static NSSInitContext *crypto_context = NULL;
 static pid_t crypto_init_pid = 0;
 
+int g_allow_leaky_crypto_shutdown = 0;
+
 void ceph::crypto::init(CephContext *cct)
 {
   pid_t pid = getpid();
@@ -84,8 +86,10 @@ void ceph::crypto::shutdown()
   if (--crypto_refs == 0) {
     int r = NSS_ShutdownContext(crypto_context);
     if (r) {
-      cerr << "NSS_ShutdownContext failed; leaked objects?" << std::endl;
-      assert(0 == "NSS_ShutdownContext failed");
+      if (!g_allow_leaky_crypto_shutdown) {
+	cerr << "NSS_ShutdownContext failed; leaked objects?" << std::endl;
+	assert(0 == "NSS_ShutdownContext failed");
+      }
     }
     crypto_context = NULL;
     crypto_init_pid = 0;

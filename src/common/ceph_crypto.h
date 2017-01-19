@@ -9,6 +9,11 @@
 #define CEPH_CRYPTO_HMACSHA256_DIGESTSIZE 32
 #define CEPH_CRYPTO_SHA256_DIGESTSIZE 32
 
+// this is normally false.  setting it to true will allow
+// crypto to shut down without throwing an assertion if there
+// are leaks (and NSS can't tear itself down properly).
+extern int g_allow_leaky_crypto_shutdown;
+
 #ifdef USE_CRYPTOPP
 # define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <string.h>
