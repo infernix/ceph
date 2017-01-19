@@ -24,6 +24,7 @@ using namespace std;
 
 #include "common/config.h"
 #include "common/strtol.h"
+#include "common/ceph_crypto.h"
 
 #include "mon/MonMap.h"
 #include "mds/MDSDaemon.h"
@@ -92,6 +93,11 @@ extern "C" int cephd_mds(int argc, const char **argv)
 int main(int argc, const char **argv)
 #endif
 {
+  // the MDS doesn't attempt to clean up it's memory footprint on shutdown.
+  // until it does, we have to tell the crypto subsystem the same or else
+  // NSS will be unable to shut down cleanly and will assert out.
+  g_allow_leaky_crypto_shutdown = 1;
+
   vector<const char*> args;
   argv_to_vec(argc, argv, args);
   env_to_vec(args);
