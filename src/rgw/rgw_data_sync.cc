@@ -1008,6 +1008,7 @@ class RGWDataSyncShardCR : public RGWCoroutine {
 
   map<string, bufferlist> entries;
   map<string, bufferlist>::iterator iter;
+  bool more = false;
 
   string oid;
 
@@ -1158,7 +1159,9 @@ public:
       set_marker_tracker(new RGWDataSyncShardMarkerTrack(sync_env, status_oid, sync_marker));
       total_entries = sync_marker.pos;
       do {
-        yield call(new RGWRadosGetOmapKeysCR(sync_env->store, pool, oid, sync_marker.marker, &entries, max_entries));
+        yield call(new RGWRadosGetOmapKeysCR(sync_env->store, pool, oid,
+					     sync_marker.marker, &entries,
+					     max_entries, &more));
         if (retcode < 0) {
           ldout(sync_env->cct, 0) << "ERROR: " << __func__ << "(): RGWRadosGetOmapKeysCR() returned ret=" << retcode << dendl;
           lease_cr->go_down();
@@ -1182,7 +1185,7 @@ public:
           }
           sync_marker.marker = iter->first;
         }
-      } while ((int)entries.size() == max_entries);
+      } while (more);
 
       lease_cr->go_down();
       drain_all();
@@ -1238,7 +1241,9 @@ public:
         }
 
         /* process bucket shards that previously failed */
-        yield call(new RGWRadosGetOmapKeysCR(sync_env->store, pool, error_oid, error_marker, &error_entries, max_error_entries));
+        yield call(new RGWRadosGetOmapKeysCR(sync_env->store, pool, error_oid,
+					     error_marker, &error_entries,
+					     max_error_entries, &more));
         ldout(sync_env->cct, 20) << __func__ << "(): read error repo, got " << error_entries.size() << " entries" << dendl;
         iter = error_entries.begin();
         for (; iter != error_entries.end(); ++iter) {
@@ -1246,7 +1251,7 @@ public:
           spawn(new RGWDataSyncSingleEntryCR(sync_env, iter->first, iter->first, nullptr /* no marker tracker */, error_repo, true), false);
           error_marker = iter->first;
         }
-        if ((int)error_entries.size() != max_error_entries) {
+        if (!more) {
           if (error_marker.empty() && error_entries.empty()) {
             /* the retry repo is empty, we back off a bit before calling it again */
             retry_backoff_secs *= 2;

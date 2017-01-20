@@ -415,6 +415,7 @@ class RGWRadosGetOmapKeysCR : public RGWSimpleCoroutine {
   string marker;
   map<string, bufferlist> *entries;
   int max_entries;
+  bool *pmore;
 
   int rval;
   librados::IoCtx ioctx;
@@ -426,9 +427,10 @@ class RGWRadosGetOmapKeysCR : public RGWSimpleCoroutine {
 
 public:
   RGWRadosGetOmapKeysCR(RGWRados *_store,
-		      const rgw_bucket& _pool, const string& _oid,
-		      const string& _marker,
-		      map<string, bufferlist> *_entries, int _max_entries);
+			const rgw_bucket& _pool, const string& _oid,
+			const string& _marker,
+			map<string, bufferlist> *_entries, int _max_entries,
+			bool *pm);
 
   ~RGWRadosGetOmapKeysCR();
 
