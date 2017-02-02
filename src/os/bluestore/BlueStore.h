@@ -1606,6 +1606,7 @@ private:
   uint64_t min_alloc_size = 0; ///< minimum allocation unit (power of 2)
   uint64_t min_min_alloc_size = 0; ///< minimum seen min_alloc_size
   size_t min_alloc_size_order = 0; ///< bits for min_alloc_size
+  uint64_t prefer_wal_size = 0; ///< size threshold for forced wal writes
 
   uint64_t max_alloc_size = 0; ///< maximum allocation unit (power of 2)
 
@@ -2101,6 +2102,7 @@ private:
   int _do_alloc_write(
     TransContext *txc,
     CollectionRef c,
+    OnodeRef& o,
     WriteContext *wctx);
   void _wctx_finish(
     TransContext *txc,
