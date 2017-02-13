@@ -85,6 +85,7 @@
 #include "messages/MOSDPGTrim.h"
 #include "messages/MOSDPGScan.h"
 #include "messages/MOSDPGBackfill.h"
+#include "messages/MOSDPGBackfillRemove.h"
 #include "messages/MBackfillReserve.h"
 #include "messages/MRecoveryReserve.h"
 #include "messages/MOSDECSubOpWrite.h"
@@ -6347,6 +6348,9 @@ epoch_t op_required_epoch(OpRequestRef op)
   case MSG_OSD_PG_BACKFILL:
     return replica_op_required_epoch<MOSDPGBackfill, MSG_OSD_PG_BACKFILL>(
       op);
+  case MSG_OSD_PG_BACKFILL_REMOVE:
+    return replica_op_required_epoch<MOSDPGBackfillRemove, MSG_OSD_PG_BACKFILL_REMOVE>(
+      op);
   case MSG_OSD_EC_WRITE:
     return replica_op_required_epoch<MOSDECSubOpWrite, MSG_OSD_EC_WRITE>(op);
   case MSG_OSD_EC_WRITE_REPLY:
@@ -6463,6 +6467,9 @@ bool OSD::dispatch_op_fast(OpRequestRef op, OSDMapRef& osdmap)
     break;
   case MSG_OSD_PG_BACKFILL:
     handle_replica_op<MOSDPGBackfill, MSG_OSD_PG_BACKFILL>(op, osdmap);
+    break;
+  case MSG_OSD_PG_BACKFILL_REMOVE:
+    handle_replica_op<MOSDPGBackfillRemove, MSG_OSD_PG_BACKFILL_REMOVE>(op, osdmap);
     break;
   case MSG_OSD_EC_WRITE:
     handle_replica_op<MOSDECSubOpWrite, MSG_OSD_EC_WRITE>(op, osdmap);
