@@ -3493,7 +3493,12 @@ bool PG::sched_scrub()
 {
   bool nodeep_scrub = false;
   assert(_lock.is_locked());
-  if (!(is_primary() && is_active() && is_clean() && !is_scrubbing())) {
+  if (!is_primary() ||
+      !is_active() ||
+      is_scrubbing()) {
+    return false;
+  }
+  if (needs_recovery()) {
     return false;
   }
 
