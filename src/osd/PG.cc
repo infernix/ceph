@@ -3871,10 +3871,9 @@ void PG::_scan_snaps(ScrubMap &smap)
     ScrubMap::object &o = i->second;
 
     if (hoid.snap < CEPH_MAXSNAP) {
-      // fake nlinks for old primaries
+      // check and if necessary fix snap_mapper
       bufferlist bl;
       if (o.attrs.find(OI_ATTR) == o.attrs.end()) {
-	o.nlinks = 0;
 	continue;
       }
       bl.push_back(o.attrs[OI_ATTR]);
@@ -3882,21 +3881,8 @@ void PG::_scan_snaps(ScrubMap &smap)
       try {
 	oi = bl;
       } catch(...) {
-	o.nlinks = 0;
 	continue;
       }
-      if (oi.snaps.empty()) {
-	// Just head
-	o.nlinks = 1;
-      } else if (oi.snaps.size() == 1) {
-	// Just head + only snap
-	o.nlinks = 2;
-      } else {
-	// Just head + 1st and last snaps
-	o.nlinks = 3;
-      }
-
-      // check and if necessary fix snap_mapper
       set<snapid_t> oi_snaps(oi.snaps.begin(), oi.snaps.end());
       set<snapid_t> cur_snaps;
       int r = snap_mapper.get_snaps(hoid, &cur_snaps);
@@ -3937,8 +3923,6 @@ void PG::_scan_snaps(ScrubMap &smap)
 	       << dendl;
 	}
       }
-    } else {
-      o.nlinks = 1;
     }
   }
 }
