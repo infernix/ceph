@@ -150,7 +150,8 @@ void OSDMonitor::create_initial()
   // new cluster should require latest by default
   newmap.set_flag(CEPH_OSDMAP_REQUIRE_JEWEL);
   newmap.set_flag(CEPH_OSDMAP_REQUIRE_KRAKEN);
-  newmap.set_flag(CEPH_OSDMAP_REQUIRE_LUMINOUS);
+  if (!g_conf->mon_debug_no_require_luminous)
+    newmap.set_flag(CEPH_OSDMAP_REQUIRE_LUMINOUS);
 
   // encode into pending incremental
   newmap.encode(pending_inc.fullmap,
