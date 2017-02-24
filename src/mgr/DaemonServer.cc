@@ -30,7 +30,21 @@ DaemonServer::DaemonServer(MonClient *monc_,
   DaemonStateIndex &daemon_state_,
   ClusterState &cluster_state_,
   PyModules &py_modules_)
-    : Dispatcher(g_ceph_context), msgr(nullptr), monc(monc_),
+    : Dispatcher(g_ceph_context),
+      client_byte_throttler(new Throttle(g_ceph_context, "mgr_client_bytes",
+					 g_conf->mgr_client_bytes)),
+      client_msg_throttler(new Throttle(g_ceph_context, "mgr_client_messages",
+					g_conf->mgr_client_messages)),
+      osd_byte_throttler(new Throttle(g_ceph_context, "mgr_osd_bytes",
+				      g_conf->mgr_osd_bytes)),
+      osd_msg_throttler(new Throttle(g_ceph_context, "mgr_osd_messsages",
+				     g_conf->mgr_osd_messages)),
+      mds_byte_throttler(new Throttle(g_ceph_context, "mgr_mds_bytes",
+				      g_conf->mgr_mds_bytes)),
+      mds_msg_throttler(new Throttle(g_ceph_context, "mgr_mds_messsages",
+				     g_conf->mgr_mds_messages)),
+      msgr(nullptr),
+      monc(monc_),
       daemon_state(daemon_state_),
       cluster_state(cluster_state_),
       py_modules(py_modules_),
@@ -59,6 +73,20 @@ int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
   msgr->set_default_policy(Messenger::Policy::stateless_server(0, 0));
   msgr->set_policy(entity_name_t::TYPE_MON,
 		   Messenger::Policy::lossy_client(0, 0));
+
+  // throttle clients
+  msgr->set_policy_throttlers(entity_name_t::TYPE_CLIENT,
+			      client_byte_throttler.get(),
+			      client_msg_throttler.get());
+
+  // servers
+  msgr->set_policy_throttlers(entity_name_t::TYPE_OSD,
+			      osd_byte_throttler.get(),
+			      osd_msg_throttler.get());
+  msgr->set_policy_throttlers(entity_name_t::TYPE_MDS,
+			      mds_byte_throttler.get(),
+			      mds_msg_throttler.get());
+
   int r = msgr->bind(g_conf->public_addr);
   if (r < 0) {
     derr << "unable to bind mgr to " << g_conf->public_addr << dendl;
