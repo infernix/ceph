@@ -48,9 +48,17 @@ DaemonServer::~DaemonServer() {
 int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
 {
   // Initialize Messenger
-  std::string public_msgr_type = g_conf->ms_public_type.empty() ? g_conf->ms_type : g_conf->ms_public_type;
+  std::string public_msgr_type =
+    g_conf->ms_public_type.empty() ? g_conf->ms_type : g_conf->ms_public_type;
+
   msgr = Messenger::create(g_ceph_context, public_msgr_type,
-			   entity_name_t::MGR(gid), "server", getpid(), 0);
+			   entity_name_t::MGR(gid),
+			   "mgr",
+			   getpid(), 0);
+
+  msgr->set_default_policy(Messenger::Policy::stateless_server(0, 0));
+  msgr->set_policy(entity_name_t::TYPE_MON,
+		   Messenger::Policy::lossy_client(0, 0));
   int r = msgr->bind(g_conf->public_addr);
   if (r < 0) {
     derr << "unable to bind mgr to " << g_conf->public_addr << dendl;
