@@ -2163,6 +2163,7 @@ protected:
 		OSDMapRef map);
 
   bool require_mon_peer(const Message *m);
+  bool require_mon_or_mgr_peer(const Message *m);
   bool require_osd_peer(const Message *m);
   /***
    * Verifies that we were alive in the given epoch, and that
