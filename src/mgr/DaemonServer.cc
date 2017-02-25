@@ -264,7 +264,6 @@ bool DaemonServer::handle_command(MCommand *m)
 {
   int r = 0;
   std::stringstream ss;
-  std::stringstream ds;
   bufferlist odata;
   std::string prefix;
 
@@ -325,8 +324,6 @@ bool DaemonServer::handle_command(MCommand *m)
     }
 #endif
     f.close_section();	// command_descriptions
-
-    f.flush(ds);
     goto out;
   } else {
     // Let's find you a handler!
@@ -352,7 +349,9 @@ bool DaemonServer::handle_command(MCommand *m)
     // with a ms_dispatch, so that the python part can block if it
     // wants to.
     dout(4) << "passing through " << cmdmap.size() << dendl;
+    stringstream ds;
     r = handler->handle_command(cmdmap, &ds, &ss);
+    odata.append(ds);
     goto out;
   }
 
@@ -365,7 +364,6 @@ bool DaemonServer::handle_command(MCommand *m)
 
   std::string rs;
   rs = ss.str();
-  odata.append(ds);
   dout(1) << "do_command r=" << r << " " << rs << dendl;
   //clog->info() << rs << "\n";
   if (con) {
