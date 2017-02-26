@@ -154,6 +154,7 @@ Monitor::Monitor(CephContext* cct_, string nm, MonitorDBStore *s,
   con_self(m ? m->get_loopback_connection() : NULL),
   lock("Monitor::lock"),
   timer(cct_, lock),
+  finisher(cct_, "mon_finisher", "fin"),
   cpu_tp(cct, "Monitor::cpu_tp", "cpu_tp", g_conf->mon_cpu_threads),
   has_ever_joined(false),
   logger(NULL), cluster_logger(NULL), cluster_logger_registered(false),
@@ -951,6 +952,8 @@ int Monitor::init()
   dout(2) << "init" << dendl;
   Mutex::Locker l(lock);
 
+  finisher.start();
+
   // start ticker
   timer.init();
   new_tick();
@@ -1076,6 +1079,11 @@ void Monitor::shutdown()
   elector.shutdown();
 
   mgr_client.shutdown();
+
+  lock.Unlock();
+  finisher.wait_for_empty();
+  finisher.stop();
+  lock.Lock();
 
   // clean up
   paxos->shutdown();
