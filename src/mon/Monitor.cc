@@ -2857,6 +2857,20 @@ bool Monitor::is_keyring_required()
     auth_cluster_required == "cephx";
 }
 
+struct C_MgrProxyCommand : public Context {
+  Monitor *mon;
+  MonOpRequestRef op;
+  MMonCommand *m;
+  bufferlist outbl;
+  string outs;
+  C_MgrProxyCommand(Monitor *mon, MonOpRequestRef op, MMonCommand *m)
+    : mon(mon), op(op), m(m) { }
+  void finish(int r) {
+    Mutex::Locker l(mon->lock);
+    mon->reply_command(op, r, outs, outbl, 0);
+  }
+};
+
 void Monitor::handle_command(MonOpRequestRef op)
 {
   assert(op->is_type_command());
@@ -3001,6 +3015,18 @@ void Monitor::handle_command(MonOpRequestRef op)
   if (session->proxy_con && mon_cmd->is_noforward()) {
     dout(10) << "Got forward for noforward command " << m << dendl;
     reply_command(op, -EINVAL, "forward for noforward command", rdata, 0);
+    return;
+  }
+
+  if (mon_cmd->is_mgr() &&
+      osdmon()->osdmap.test_flag(CEPH_OSDMAP_REQUIRE_LUMINOUS)) {
+    dout(10) << __func__ << " proxying mgr command" << dendl;
+    C_MgrProxyCommand *fin = new C_MgrProxyCommand(this, op, m);
+    mgr_client.start_command(m->cmd,
+			     m->get_data(),
+			     &fin->outbl,
+			     &fin->outs,
+			     new C_OnFinisher(fin, &finisher));
     return;
   }
 
