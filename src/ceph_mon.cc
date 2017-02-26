@@ -421,7 +421,7 @@ int main(int argc, const char **argv)
     }
     assert(r == 0);
 
-    Monitor mon(g_ceph_context, g_conf->name.get_id(), &store, 0, &monmap);
+    Monitor mon(g_ceph_context, g_conf->name.get_id(), &store, 0, 0, &monmap);
     r = mon.mkfs(osdmapbl);
     if (r < 0) {
       cerr << argv[0] << ": error creating monfs: " << cpp_strerror(r) << std::endl;
@@ -710,6 +710,12 @@ int main(int argc, const char **argv)
     prefork.exit(1);
   }
 
+  Messenger *mgr_msgr = Messenger::create(g_ceph_context, public_msgr_type,
+					  entity_name_t::MON(rank), "mon-mgrc",
+					  0, 0);
+  if (!mgr_msgr)
+    exit(1);
+
   cout << "starting " << g_conf->name << " rank " << rank
        << " at " << ipaddr
        << " mon_data " << g_conf->mon_data
@@ -718,7 +724,7 @@ int main(int argc, const char **argv)
 
   // start monitor
   mon = new Monitor(g_ceph_context, g_conf->name.get_id(), store,
-		    msgr, &monmap);
+		    msgr, mgr_msgr, &monmap);
 
   if (force_sync) {
     derr << "flagging a forced sync ..." << dendl;
@@ -767,6 +773,7 @@ int main(int argc, const char **argv)
   delete mon;
   delete store;
   delete msgr;
+  delete mgr_msgr;
   delete client_throttler;
   delete daemon_throttler;
 
