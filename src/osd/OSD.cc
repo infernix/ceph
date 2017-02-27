@@ -1452,8 +1452,7 @@ void OSDService::handle_misdirected_op(PG *pg, OpRequestRef op)
 	       << " pg " << m->get_raw_pg()
 	       << " to osd." << whoami
 	       << " not " << pg->acting
-	       << " in e" << m->get_map_epoch() << "/" << osdmap->get_epoch()
-	       << "\n";
+	       << " in e" << m->get_map_epoch() << "/" << osdmap->get_epoch();
   if (g_conf->osd_enxio_on_misdirected_op) {
     reply_op_error(op, -ENXIO);
   }
@@ -6005,7 +6004,7 @@ void OSD::do_command(Connection *con, ceph_tid_t tid, vector<string>& cmd, buffe
   rs = ss.str();
   odata.append(ds);
   dout(0) << "do_command r=" << r << " " << rs << dendl;
-  clog->info() << rs << "\n";
+  clog->info() << rs;
   if (con) {
     MCommandReply *reply = new MCommandReply(r, rs);
     reply->set_tid(tid);
@@ -7048,7 +7047,7 @@ void OSD::handle_osd_map(MOSDMap *m)
 	dout(2) << "got incremental " << e
 		<< " but failed to encode full with correct crc; requesting"
 		<< dendl;
-	clog->warn() << "failed to encode map e" << e << " with expected crc\n";
+	clog->warn() << "failed to encode map e" << e << " with expected crc";
 	dout(20) << "my encoded map was:\n";
 	fbl.hexdump(*_dout);
 	*_dout << dendl;
@@ -8842,12 +8841,11 @@ void OSD::handle_op(OpRequestRef& op, OSDMapRef& osdmap)
   if (!send_map->have_pg_pool(pgid.pool())) {
     dout(7) << "dropping request; pool did not exist" << dendl;
     clog->warn() << m->get_source_inst() << " invalid " << m->get_reqid()
-		      << " pg " << m->get_raw_pg()
-		      << " to osd." << whoami
-		      << " in e" << osdmap->get_epoch()
-		      << ", client e" << m->get_map_epoch()
-		      << " when pool " << m->get_pg().pool() << " did not exist"
-		      << "\n";
+		 << " pg " << m->get_raw_pg()
+		 << " to osd." << whoami
+		 << " in e" << osdmap->get_epoch()
+		 << ", client e" << m->get_map_epoch()
+		 << " when pool " << m->get_pg().pool() << " did not exist";
     return;
   }
   if (!send_map->osd_is_valid_op_target(pgid.pgid, whoami)) {
@@ -8858,8 +8856,7 @@ void OSD::handle_op(OpRequestRef& op, OSDMapRef& osdmap)
 		 << " in e" << osdmap->get_epoch()
 		 << ", client e" << m->get_map_epoch()
 		 << " pg " << pgid
-		 << " features " << m->get_connection()->get_features()
-		 << "\n";
+		 << " features " << m->get_connection()->get_features();
     if (g_conf->osd_enxio_on_misdirected_op) {
       service.reply_op_error(op, -ENXIO);
     }

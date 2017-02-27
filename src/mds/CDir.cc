@@ -1701,7 +1701,7 @@ CDentry *CDir::_load_dentry(
           << " [" << first << "," << last << "] v" << inode_data.inode.version
           << " at " << dirpath << "/" << dname
           << ", but inode " << in->vino() << " v" << in->inode.version
-          << " already exists at " << inopath << "\n";
+	  << " already exists at " << inopath;
         return dn;
       }
     }
@@ -2221,7 +2221,7 @@ void CDir::_committed(int r, version_t v)
     if (r < 0) {
       dout(1) << "commit error " << r << " v " << v << dendl;
       cache->mds->clog->error() << "failed to commit dir " << dirfrag() << " object,"
-				<< " errno " << r << "\n";
+				<< " errno " << r;
       cache->mds->handle_write_error(r);
       return;
     }
