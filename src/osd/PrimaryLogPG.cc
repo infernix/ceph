@@ -3419,7 +3419,8 @@ void PrimaryLogPG::do_backfill(OpRequestRef op)
   }
 }
 
-PrimaryLogPG::OpContextUPtr PrimaryLogPG::trim_object(bool first, const hobject_t &coid)
+PrimaryLogPG::OpContextUPtr PrimaryLogPG::trim_object(
+  bool first, const hobject_t &coid)
 {
   // load clone info
   bufferlist bl;
@@ -3610,9 +3611,16 @@ PrimaryLogPG::OpContextUPtr PrimaryLogPG::trim_object(bool first, const hobject_
   }
 
   // save head snapset
-  dout(10) << coid << " new snapset " << snapset << dendl;
-
-  if (snapset.clones.empty() && !snapset.head_exists) {
+  dout(10) << coid << " new snapset " << snapset << " on "
+	   << snapset_obc->obs.oi << dendl;
+  if (snapset.clones.empty() &&
+      (!snapset.head_exists ||
+       (snapset_obc->obs.oi.is_whiteout() && !(snapset_obc->obs.oi.is_dirty() &&
+					       pool.info.is_tier())))) {
+    // NOTE: this arguably constitutes minor interference with the
+    // tiering agent if this is a cache tier since a snap trim event
+    // is effectively evicting a whiteout we might otherwise want to
+    // keep around.
     dout(10) << coid << " removing " << snapoid << dendl;
     ctx->log.push_back(
       pg_log_entry_t(
