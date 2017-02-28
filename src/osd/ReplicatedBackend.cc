@@ -1003,6 +1003,7 @@ Message * ReplicatedBackend::generate_subop(
     spg_t(get_info().pgid.pgid, peer.shard),
     soid, acks_wanted,
     get_osdmap()->get_epoch(),
+    last_peering_reset,
     tid, at_version);
 
   // ship resulting transaction, log entries, and pg_stats
@@ -1202,7 +1203,7 @@ void ReplicatedBackend::sub_op_modify_applied(RepModifyRef rm)
     if (!rm->committed)
       ack = new MOSDRepOpReply(
 	static_cast<const MOSDRepOp*>(m), parent->whoami_shard(),
-	0, get_osdmap()->get_epoch(), CEPH_OSD_FLAG_ACK);
+	0, get_osdmap()->get_epoch(), req->min_epoch, CEPH_OSD_FLAG_ACK);
   } else {
     ceph_abort();
   }
@@ -1241,10 +1242,11 @@ void ReplicatedBackend::sub_op_modify_commit(RepModifyRef rm)
     reply->set_last_complete_ondisk(rm->last_complete);
     commit = reply;
   } else if (m->get_type() == MSG_OSD_REPOP) {
+    const MOSDRepOp *req = static_cast<const MOSDRepOp*>(m);
     MOSDRepOpReply *reply = new MOSDRepOpReply(
       static_cast<const MOSDRepOp*>(m),
       get_parent()->whoami_shard(),
-      0, get_osdmap()->get_epoch(), CEPH_OSD_FLAG_ONDISK);
+      0, get_osdmap()->get_epoch(), req->min_epoch, CEPH_OSD_FLAG_ONDISK);
     reply->set_last_complete_ondisk(rm->last_complete);
     commit = reply;
   }
