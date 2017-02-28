@@ -7755,7 +7755,7 @@ void PrimaryLogPG::finish_promote(int r, CopyResults *results,
       if (legacy_snapset) {
 	tctx->new_obs.oi.legacy_snaps = results->snaps;
       } else {
-#warning where do we update_snaps?
+	// it's already in the snapset
 	assert(obc->ssc->snapset.clone_snaps.count(soid.snap));
       }
       assert(!tctx->new_obs.oi.legacy_snaps.empty());
@@ -12663,6 +12663,9 @@ void PrimaryLogPG::scrub_snapshot_metadata(
   const char *mode = (repair ? "repair": (deep_scrub ? "deep-scrub" : "scrub"));
   boost::optional<snapid_t> all_clones;   // Unspecified snapid_t or boost::none
 
+  /// snapsets to repair
+  map<hobject_t,SnapSet> snapset_to_repair;
+
   // traverse in reverse order.
   boost::optional<hobject_t> head;
   boost::optional<SnapSet> snapset; // If initialized so will head (above)
@@ -12826,7 +12829,7 @@ void PrimaryLogPG::scrub_snapshot_metadata(
 	bl.push_back(p->second.attrs[SS_ATTR]);
 	bufferlist::iterator blp = bl.begin();
         try {
-	   snapset = SnapSet(); // Initialize optional<> before decoding into it
+	  snapset = SnapSet(); // Initialize optional<> before decoding into it
 	  ::decode(snapset.get(), blp);
         } catch (buffer::error& e) {
 	  snapset = boost::none;
@@ -12862,6 +12865,16 @@ void PrimaryLogPG::scrub_snapshot_metadata(
 			  << " snapset.head_exists=true, but snapdir exists";
 	  ++scrubber.shallow_errors;
 	  head_error.set_head_mismatch();
+	}
+
+	if (get_osdmap()->test_flag(CEPH_OSDMAP_REQUIRE_LUMINOUS)) {
+	  if (soid.is_snapdir()) {
+	    dout(10) << " will move snapset to head from " << soid << dendl;
+	    snapset_to_repair[soid.get_head()] = *snapset;
+	  } else if (snapset->is_legacy()) {
+	    dout(10) << " will convert legacy snapset on " << soid << dendl;
+	    snapset_to_repair[soid.get_head()] = *snapset;
+	  }
 	}
       }
     } else {
@@ -12920,6 +12933,21 @@ void PrimaryLogPG::scrub_snapshot_metadata(
         }
       }
 
+      // migrate legacy_snaps to snapset?
+      auto p = snapset_to_repair.find(soid.get_head());
+      if (p != snapset_to_repair.end()) {
+	if (!oi || oi->legacy_snaps.empty()) {
+	  osd->clog->error() << mode << " " << info.pgid << " " << soid
+			     << " has no oi or legacy_snaps; cannot convert "
+			     << *snapset;
+	  ++scrubber.shallow_errors;
+	} else {
+	  dout(20) << __func__ << "   copying legacy_snaps " << oi->legacy_snaps
+		   << " to snapset " << p->second << dendl;
+	  p->second.clone_snaps[soid.snap] = oi->legacy_snaps;
+	}
+      }
+
       // what's next?
       ++curclone;
       if (soid_error.errors)
@@ -12976,6 +13004,71 @@ void PrimaryLogPG::scrub_snapshot_metadata(
     ctx->register_on_success(
       [this]() {
 	dout(20) << "updating scrub digest" << dendl;
+	if (--scrubber.num_digest_updates_pending == 0) {
+	  requeue_scrub();
+	}
+      });
+
+    simple_opc_submit(std::move(ctx));
+    ++scrubber.num_digest_updates_pending;
+  }
+  for (auto& p : snapset_to_repair) {
+    if (p.second.clones.size() != p.second.clone_snaps.size() ||
+	p.second.is_legacy()) {
+      // this happens if we encounter other errors above, like a missing
+      // or extra clone.
+      dout(10) << __func__ << " not writing snapset to " << p.first
+	       << " " << p.second << "; didn't convert fully" << dendl;
+      continue;
+    }
+    dout(10) << __func__ << " writing snapset to " << p.first
+	     << " " << p.second << dendl;
+    ObjectContextRef obc = get_object_context(p.first, false);
+    if (!obc) {
+      osd->clog->error() << info.pgid << " " << mode
+			 << " cannot get object context for "
+			 << p.first;
+      continue;
+    } else if (obc->obs.oi.soid != p.first) {
+      osd->clog->error() << info.pgid << " " << mode
+			 << " object " << p.first
+			 << " has a valid oi attr with a mismatched name, "
+			 << " obc->obs.oi.soid: " << obc->obs.oi.soid;
+      continue;
+    }
+    ObjectContextRef snapset_obc;
+    if (!obc->obs.exists) {
+      snapset_obc = get_object_context(p.first.get_snapdir(), false);
+      if (!snapset_obc) {
+	osd->clog->error() << info.pgid << " " << mode
+			   << " cannot get object context for "
+			   << p.first.get_snapdir();
+	continue;
+      }
+    }
+    OpContextUPtr ctx = simple_opc_create(obc);
+    PGTransaction *t = ctx->op_t.get();
+    ctx->snapset_obc = snapset_obc;
+    ctx->at_version = get_next_version();
+    ctx->mtime = utime_t();      // do not update mtime
+    ctx->new_snapset = p.second;
+    if (!ctx->new_obs.exists) {
+      dout(20) << __func__ << "   making " << p.first << " a whiteout" << dendl;
+      ctx->new_obs.exists = true;
+      ctx->new_snapset.head_exists = true;
+      ctx->new_obs.oi.set_flag(object_info_t::FLAG_WHITEOUT);
+      ++ctx->delta_stats.num_whiteouts;
+      ++ctx->delta_stats.num_objects;
+      t->create(p.first);
+      ++scrub_cstat.sum.num_whiteouts;
+      ++scrub_cstat.sum.num_objects;
+    }
+    dout(20) << __func__ << "   final snapset " << ctx->new_snapset << dendl;
+    assert(!ctx->new_snapset.is_legacy());
+    finish_ctx(ctx.get(), pg_log_entry_t::MODIFY);
+    ctx->register_on_success(
+      [this]() {
+	dout(20) << "updating snapset" << dendl;
 	if (--scrubber.num_digest_updates_pending == 0) {
 	  requeue_scrub();
 	}
