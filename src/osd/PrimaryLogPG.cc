@@ -12889,7 +12889,8 @@ void PrimaryLogPG::scrub_snapshot_metadata(
 	    dout(10) << " will move snapset to head from " << soid << dendl;
 	    snapset_to_repair[soid.get_head()] = *snapset;
 	  } else if (snapset->is_legacy()) {
-	    dout(10) << " will convert legacy snapset on " << soid << dendl;
+	    dout(10) << " will convert legacy snapset on " << soid << " " << *snapset
+		     << dendl;
 	    snapset_to_repair[soid.get_head()] = *snapset;
 	  }
 	} else {
