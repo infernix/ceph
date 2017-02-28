@@ -69,3 +69,6 @@
 * The rados copy-get-classic operation has been removed since it has not been
   used by the OSD since before hammer.  It is unlikely any librados user is
   using this operation explicitly since there is also the more modern copy-get.
+
+* The deprecated 'crush_ruleset' property has finally been removed; please use
+  'crush_rule' instead for the 'osd pool get ...' and 'osd pool set ..' commands.
