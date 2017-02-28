@@ -745,6 +745,7 @@ bool ECBackend::handle_message(
     MOSDECSubOpReadReply *reply = new MOSDECSubOpReadReply;
     reply->pgid = get_parent()->primary_spg_t();
     reply->map_epoch = get_parent()->get_epoch();
+    reply->min_epoch = get_parent()->get_interval_start_epoch();
     handle_sub_read(op->op.from, op->op, &(reply->op));
     get_parent()->send_message_osd_cluster(
       op->op.from.osd, reply, get_parent()->get_epoch());
@@ -825,6 +826,7 @@ void ECBackend::sub_write_committed(
     MOSDECSubOpWriteReply *r = new MOSDECSubOpWriteReply;
     r->pgid = get_parent()->primary_spg_t();
     r->map_epoch = get_parent()->get_epoch();
+    r->min_epoch = get_parent()->get_interval_start_epoch();
     r->op.tid = tid;
     r->op.last_complete = last_complete;
     r->op.committed = true;
@@ -1632,6 +1634,7 @@ void ECBackend::do_read_op(ReadOp &op)
       get_parent()->whoami_spg_t().pgid,
       i->first.shard);
     msg->map_epoch = get_parent()->get_epoch();
+    msg->min_epoch = get_parent()->get_interval_start_epoch();
     msg->op = i->second;
     msg->op.from = get_parent()->whoami_shard();
     msg->op.tid = tid;
@@ -1922,6 +1925,7 @@ bool ECBackend::try_reads_to_commit()
       MOSDECSubOpWrite *r = new MOSDECSubOpWrite(sop);
       r->pgid = spg_t(get_parent()->primary_spg_t().pgid, i->shard);
       r->map_epoch = get_parent()->get_epoch();
+      r->min_epoch = get_parent()->get_interval_start_epoch();
       get_parent()->send_message_osd_cluster(
 	i->osd, r, get_parent()->get_epoch());
     }
