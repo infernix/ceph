@@ -69,3 +69,16 @@
 * The rados copy-get-classic operation has been removed since it has not been
   used by the OSD since before hammer.  It is unlikely any librados user is
   using this operation explicitly since there is also the more modern copy-get.
+
+* There was a bug introduced in Jewel (#19119) that broke the mapping behavior
+  when an "out" OSD that still existed in the CRUSH map was removed with 'osd rm'.
+  This could result in 'misdirected op' and other errors.  The bug is now fixed,
+  but the fix itself introduces the same risk because the behavior may vary between
+  clients and OSDs.  To avoid problems, please ensure that all OSDs are removed
+  from the CRUSH map before deleting them.  That is, be sure to do::
+
+     ceph osd crush rm osd.123
+
+  before::
+
+     ceph osd rm osd.123
