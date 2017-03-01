@@ -298,20 +298,20 @@ private:
   int normalize_profile(const string& profilename, 
 			ErasureCodeProfile &profile,
 			ostream *ss);
-  int crush_ruleset_create_erasure(const string &name,
-				   const string &profile,
-				   int *ruleset,
-				   ostream *ss);
-  int get_crush_ruleset(const string &ruleset_name,
-			int *crush_ruleset,
+  int crush_rule_create_erasure(const string &name,
+				const string &profile,
+				int *rule,
+				ostream *ss);
+  int get_crush_rule(const string &rule_name,
+			int *crush_rule,
 			ostream *ss);
   int get_erasure_code(const string &erasure_code_profile,
 		       ErasureCodeInterfaceRef *erasure_code,
 		       ostream *ss) const;
-  int prepare_pool_crush_ruleset(const unsigned pool_type,
+  int prepare_pool_crush_rule(const unsigned pool_type,
 				 const string &erasure_code_profile,
-				 const string &ruleset_name,
-				 int *crush_ruleset,
+				 const string &rule_name,
+				 int *crush_rule,
 				 ostream *ss);
   bool erasure_code_profile_in_use(const map<int64_t, pg_pool_t> &pools,
 				   const string &profile,
@@ -328,8 +328,8 @@ private:
 				unsigned *stripe_width,
 				ostream *ss);
   int prepare_new_pool(string& name, uint64_t auid,
-		       int crush_ruleset,
-		       const string &crush_ruleset_name,
+		       int crush_rule,
+		       const string &crush_rule_name,
                        unsigned pg_num, unsigned pgp_num,
 		       const string &erasure_code_profile,
                        const unsigned pool_type,
